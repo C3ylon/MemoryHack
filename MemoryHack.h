@@ -70,26 +70,22 @@ DWORD GetModuleAddr(DWORD pid, CONST WCHAR* modname)
 
 int EnableDebugPriv()
 {
-	HANDLE hToken;        //进程令牌句柄
-	TOKEN_PRIVILEGES tp;  //TOKEN_PRIVILEGES结构体，其中包含一个【类型+操作】的权限数组
-	LUID luid;           //上述结构体中的类型值
-	//打开进程令牌环
-	//GetCurrentProcess()获取当前进程的伪句柄，只会指向当前进程或者线程句柄，随时变化
+	HANDLE hToken;
+	TOKEN_PRIVILEGES tp;
+	LUID luid;
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
 	{
 		printf("[!]OpenProcessToken error\n");
 		return FALSE;
 	}
-	//获得本地进程name所代表的权限类型的局部唯一ID
 	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid))
 	{
 		printf("[!]LookupPrivilegeValue error\n");
 		return FALSE;
 	}
-	tp.PrivilegeCount = 1;                               //权限数组中只有一个“元素”
-	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;  //权限操作
-	tp.Privileges[0].Luid = luid;                        //权限类型
-	//调整进程权限
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	tp.Privileges[0].Luid = luid;
 	if (!AdjustTokenPrivileges(hToken, 0, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
 	{
 		printf("[!]AdjustTokenPrivileges error!\n");
