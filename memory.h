@@ -20,11 +20,11 @@ int InitByWindowName(const wchar_t* windowname)
 {
 	HWND hWnd = FindWindowW(NULL, windowname);
 	GetWindowThreadProcessId(hWnd, &pid);
-	printf("[*]pid is %08x\n", pid);
+	printf("[+]pid is %08x\n", pid);
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
 	if (!hProcess)
 	{
-		printf("[*]get hProcess fail number: %d\n", GetLastError());
+		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
 	}
 	return TRUE;
@@ -37,14 +37,14 @@ DWORD GetModuleAddr(const wchar_t* modulename)
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
 	if (!hSnapshot)
 	{
-		printf("[*]create snapshot handle fail\n");
+		printf("[!]create snapshot handle fail\n");
 	}
 	else
 	{
 		modentry.dwSize = sizeof(MODULEENTRY32);
 		if (!Module32FirstW(hSnapshot, &modentry))
 		{
-			printf("[*]module32first fail\n");
+			printf("[!]module32first fail\n");
 		}
 		else
 		{
@@ -87,14 +87,14 @@ int InjectShellcode(HANDLE hProcess, BYTE shellcode[])
 	LPVOID calladdr = VirtualAllocEx(hProcess, NULL, 1024, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (!calladdr)
 	{
-		printf("[*]VirtualAllocEx fail\n");
+		printf("[!]VirtualAllocEx fail\n");
 		return FALSE;
 	}
 	WriteProcessMemory(hProcess, calladdr, shellcode, 1024, NULL);
 	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (DWORD(_stdcall*)(LPVOID))calladdr, NULL, NULL, NULL);
 	if (!hRemote)
 	{
-		printf("[*]create remote thread fail\n");
+		printf("[!]create remote thread fail\n");
 		return FALSE;
 	}
 	WaitForSingleObject(hRemote, INFINITE);
