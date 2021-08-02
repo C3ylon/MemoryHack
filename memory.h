@@ -84,7 +84,6 @@ int WriteMemory(DWORD addr, DWORD size, void* writebuff)
 
 int InjectShellcode(BYTE shellcode[])
 {
-	EnableDebugPriv();
 	LPVOID calladdr = VirtualAllocEx(hProcess, NULL, 1024, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (!calladdr)
 	{
