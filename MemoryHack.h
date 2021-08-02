@@ -70,7 +70,7 @@ DWORD GetModuleAddr(DWORD pid, CONST WCHAR* modname)
 
 int EnableDebugPriv()
 {
-	HANDLE hToken;
+	HANDLE hToken = NULL;
 	TOKEN_PRIVILEGES tp;
 	LUID luid;
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
@@ -86,7 +86,7 @@ int EnableDebugPriv()
 	tp.PrivilegeCount = 1;
 	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 	tp.Privileges[0].Luid = luid;
-	if (!AdjustTokenPrivileges(hToken, 0, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
+	if (!AdjustTokenPrivileges(hToken, NULL, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
 	{
 		printf("[!]AdjustTokenPrivileges error!\n");
 		return FALSE;
