@@ -54,6 +54,11 @@ int InitByWindowName(const wchar_t* windowname)
 	EnableDebugPriv();
 	HWND hWnd = FindWindowW(NULL, windowname);
 	GetWindowThreadProcessId(hWnd, &pid);
+	if (!pid)
+	{
+		printf("[!]don't find the process\n");
+		return FALSE;
+	}
 	printf("[+]pid is %08x\n", pid);
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
 	if (!hProcess)
@@ -216,5 +221,4 @@ void ClearHandle(void)
 	CloseHandle(hProcess);
 	printf("[+]finish memory hack\n");
 }
-
 
