@@ -31,15 +31,16 @@ int EnableDebugPriv()
 		printf("[!]AdjustTokenPrivileges error!\n");
 		return FALSE;
 	}
-	printf("[+]Enable Debug Privileges success\n");
+	printf("[+]Enable debug privileges success\n");
 	return TRUE;
 }
 
-int InitByPid(DWORD pid)
+int InitByPid(DWORD ProcessID)
 {
+	pid = ProcessID;
 	EnableDebugPriv();
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
-	printf("[+]hProcess is %08x\n", hProcess);
+	printf("[+]hProcess is %08x\n", (DWORD)hProcess);
 	if (!hProcess)
 	{
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
@@ -60,13 +61,12 @@ int InitByWindowName(const wchar_t* windowname)
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
 	}
-	printf("[+]hProcess is %08x\n", hProcess);
+	printf("[+]hProcess is %08x\n", (DWORD)hProcess);
 	return TRUE;
 }
 
-DWORD GetModuleAddr(DWORD pid, CONST WCHAR* modname)
+DWORD GetModuleAddr(CONST WCHAR* modname)
 {
-
 	MODULEENTRY32W moduleEntry;
 	memset(&moduleEntry, 0, sizeof(MODULEENTRY32W));
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
@@ -191,6 +191,30 @@ int UnloadDll(char dllname[256])
 	CloseHandle(hRemote);
 	VirtualFreeEx(hProcess, dllnamebuffer, NULL, MEM_RELEASE);
 	return TRUE;
+}
+
+int ReadMemory(DWORD addr, DWORD size, void* readbuff)
+{
+	DWORD oldprotect = NULL;
+	VirtualProtectEx(hProcess, (void*)addr, size, PAGE_EXECUTE_READWRITE, &oldprotect);
+	int result = ReadProcessMemory(hProcess, (void*)addr, readbuff, size, NULL);
+	VirtualProtectEx(hProcess, (void*)addr, size, oldprotect, &oldprotect);
+	return result;
+}
+
+int WriteMemory(DWORD addr, DWORD size, void* writebuff)
+{
+	DWORD oldprotect = NULL;
+	VirtualProtectEx(hProcess, (void*)addr, size, PAGE_EXECUTE_READWRITE, &oldprotect);
+	int result = WriteProcessMemory(hProcess, (void*)addr, writebuff, size, NULL);
+	VirtualProtectEx(hProcess, (void*)addr, size, oldprotect, &oldprotect);
+	return result;
+}
+
+void ClearHandle(void)
+{
+	CloseHandle(hProcess);
+	printf("[+]finish memory hack\n");
 }
 
 
