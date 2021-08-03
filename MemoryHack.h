@@ -56,7 +56,7 @@ int InitByWindowName(const wchar_t* windowname)
 	GetWindowThreadProcessId(hWnd, &pid);
 	if (!pid)
 	{
-		printf("[!]don't find the process\n");
+		wprintf(L"[!]don't find \"%s\" pid\n", windowname);
 		return FALSE;
 	}
 	printf("[+]pid is %08x\n", pid);
@@ -221,4 +221,5 @@ void ClearHandle(void)
 	CloseHandle(hProcess);
 	printf("[+]finish memory hack\n");
 }
+
 
