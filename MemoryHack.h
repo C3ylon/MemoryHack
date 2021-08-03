@@ -31,6 +31,7 @@ int EnableDebugPriv()
 		printf("[!]AdjustTokenPrivileges error!\n");
 		return FALSE;
 	}
+	printf("[+]Enable Debug Privileges success\n");
 	return TRUE;
 }
 
