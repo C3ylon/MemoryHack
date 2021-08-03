@@ -8,8 +8,35 @@
 DWORD pid = NULL;
 HANDLE hProcess = NULL;
 
+int EnableDebugPriv()
+{
+	HANDLE hToken = NULL;
+	TOKEN_PRIVILEGES tp;
+	LUID luid;
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+	{
+		printf("[!]OpenProcessToken error\n");
+		return FALSE;
+	}
+	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid))
+	{
+		printf("[!]LookupPrivilegeValue error\n");
+		return FALSE;
+	}
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	tp.Privileges[0].Luid = luid;
+	if (!AdjustTokenPrivileges(hToken, NULL, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
+	{
+		printf("[!]AdjustTokenPrivileges error!\n");
+		return FALSE;
+	}
+	return TRUE;
+}
+
 int InitByPid(DWORD pid)
 {
+	EnableDebugPriv();
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
 	printf("[+]hProcess is %08x\n", hProcess);
 	if (!hProcess)
@@ -22,16 +49,17 @@ int InitByPid(DWORD pid)
 
 int InitByWindowName(const wchar_t* windowname)
 {
+	EnableDebugPriv();
 	HWND hWnd = FindWindowW(NULL, windowname);
 	GetWindowThreadProcessId(hWnd, &pid);
 	printf("[+]pid is %08x\n", pid);
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
-	printf("[+]hProcess is %08x\n", hProcess);
 	if (!hProcess)
 	{
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
 	}
+	printf("[+]hProcess is %08x\n", hProcess);
 	return TRUE;
 }
 
@@ -68,35 +96,8 @@ DWORD GetModuleAddr(DWORD pid, CONST WCHAR* modname)
 	return NULL;
 }
 
-int EnableDebugPriv()
-{
-	HANDLE hToken = NULL;
-	TOKEN_PRIVILEGES tp;
-	LUID luid;
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-	{
-		printf("[!]OpenProcessToken error\n");
-		return FALSE;
-	}
-	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid))
-	{
-		printf("[!]LookupPrivilegeValue error\n");
-		return FALSE;
-	}
-	tp.PrivilegeCount = 1;
-	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	tp.Privileges[0].Luid = luid;
-	if (!AdjustTokenPrivileges(hToken, NULL, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL))
-	{
-		printf("[!]AdjustTokenPrivileges error!\n");
-		return FALSE;
-	}
-	return TRUE;
-}
-
 int InjectShellcode(BYTE shellcode[])
 {
-	EnableDebugPriv();
 	LPVOID calladdr = VirtualAllocEx(hProcess, NULL, 1024, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (!calladdr)
 	{
