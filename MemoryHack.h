@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 
+typedef UINT64 QWORD;
 
 DWORD pid = NULL;
 HANDLE hProcess = NULL;
@@ -35,6 +36,39 @@ int EnableDebugPriv()
 	return TRUE;
 }
 
+typedef NTSTATUS(NTAPI* LPFN_NTWOW64READVIRTUALMEMORY64)(
+	IN  HANDLE   ProcessHandle,
+	IN  ULONG64  BaseAddress,
+	OUT PVOID    BufferData,
+	IN  ULONG64  BufferLength,
+	OUT PULONG64 ReturnLength OPTIONAL);
+typedef NTSTATUS(NTAPI* LPFN_NTWOW64WRITEVIRTUALMEMORY64)(
+	IN  HANDLE   ProcessHandle,
+	IN  ULONG64  BaseAddress,
+	OUT PVOID    BufferData,
+	IN  ULONG64  BufferLength,
+	OUT PULONG64 ReturnLength OPTIONAL);
+LPFN_NTWOW64READVIRTUALMEMORY64       __NtWow64ReadVirtualMemory64;
+LPFN_NTWOW64WRITEVIRTUALMEMORY64	  __NtWow64WriteVirtualMemory64;
+int GetNtWow64MemoryProcAddr()
+{
+	HMODULE NtdllModuleBase = NULL;
+	NtdllModuleBase = GetModuleHandle(L"Ntdll.dll");
+	if (!NtdllModuleBase)
+	{
+		printf("[!]get ntdll address fail\n");
+		return FALSE;
+	}
+	__NtWow64ReadVirtualMemory64 = (LPFN_NTWOW64READVIRTUALMEMORY64)GetProcAddress(NtdllModuleBase, "NtWow64ReadVirtualMemory64");
+	__NtWow64WriteVirtualMemory64 = (LPFN_NTWOW64WRITEVIRTUALMEMORY64)GetProcAddress(NtdllModuleBase, "NtWow64WriteVirtualMemory64");
+	if (!(__NtWow64ReadVirtualMemory64 && __NtWow64WriteVirtualMemory64))
+	{
+		printf("[!]get nt64 read|write proc address fail\n");
+		return FALSE;
+	}
+	return	 TRUE;
+}
+
 int InitByPid(DWORD ProcessID)
 {
 	pid = ProcessID;
@@ -46,7 +80,8 @@ int InitByPid(DWORD ProcessID)
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
 	}
-	return TRUE;
+	if (GetNtWow64MemoryProcAddr()) return TRUE;
+	else return FALSE;
 }
 
 int InitByWindowName(const wchar_t* windowname)
@@ -67,7 +102,8 @@ int InitByWindowName(const wchar_t* windowname)
 		return FALSE;
 	}
 	printf("[+]hProcess is %08x\n", (DWORD)hProcess);
-	return TRUE;
+	if (GetNtWow64MemoryProcAddr()) return TRUE;
+	else return FALSE;
 }
 
 DWORD GetModuleAddr(CONST WCHAR* modname)
@@ -132,12 +168,12 @@ int InjectShellcode(BYTE shellcode[])
 int InjectDll(BYTE dllpayload[4096])
 {
 	LPVOID dllAddr = VirtualAllocEx(hProcess, NULL, 4096, MEM_COMMIT, PAGE_READWRITE);
-	if (!dllAddr) 
+	if (!dllAddr)
 	{
 		printf("[!]VirtualAllocEx fail\n");
 		return FALSE;
 	}
-	if (!WriteProcessMemory(hProcess, dllAddr, dllpayload, 4096, NULL)) 
+	if (!WriteProcessMemory(hProcess, dllAddr, dllpayload, 4096, NULL))
 	{
 		printf("[!]write dll payload in target process fail\n");
 		VirtualFreeEx(hProcess, dllAddr, NULL, MEM_RELEASE);
@@ -146,7 +182,7 @@ int InjectDll(BYTE dllpayload[4096])
 	HMODULE kerneldlladdr = GetModuleHandleW(L"Kernel32.dll");
 	LPVOID pLoadLibraryA = GetProcAddress(kerneldlladdr, "LoadLibraryA");
 	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)pLoadLibraryA, dllAddr, NULL, NULL);
-	if (!hRemote) 
+	if (!hRemote)
 	{
 		printf("[!]create remote thread fail\n");
 		VirtualFreeEx(hProcess, dllAddr, NULL, MEM_RELEASE);
@@ -175,7 +211,7 @@ int UnloadDll(char dllname[256])
 	}
 	LPVOID pFunc = GetProcAddress(GetModuleHandle(L"Kernel32"), "GetModuleHandleA");
 	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)pFunc, dllnamebuffer, NULL, NULL);
-	if (!hRemote) 
+	if (!hRemote)
 	{
 		printf("[!]create remote thread fail\n");
 		VirtualFreeEx(hProcess, dllnamebuffer, NULL, MEM_RELEASE);
@@ -222,4 +258,51 @@ void ClearHandle(void)
 	printf("[+]finish memory hack\n");
 }
 
+int Rint(QWORD addr)
+{
+	int buff = 0;
+	NTSTATUS Status = __NtWow64ReadVirtualMemory64(hProcess, addr, &buff, 4, NULL);
+	return buff;
+}
+
+float Rfloat(QWORD addr)
+{
+	float buff = 0;
+	NTSTATUS Status = __NtWow64ReadVirtualMemory64(hProcess, addr, &buff, 4, NULL);
+	return buff;
+}
+
+double Rdouble(QWORD addr)
+{
+	double buff = 0;
+	NTSTATUS Status = __NtWow64ReadVirtualMemory64(hProcess, addr, &buff, 8, NULL);
+	return buff;
+}
+
+void Wint(QWORD addr, int val)
+{
+	int _val = val;
+	DWORD oldprotect = NULL;
+	VirtualProtectEx(hProcess, (void*)addr, 4, PAGE_EXECUTE_READWRITE, &oldprotect);
+	NTSTATUS Status = __NtWow64WriteVirtualMemory64(hProcess, addr, &_val, 4, NULL);
+	VirtualProtectEx(hProcess, (void*)addr, 4, oldprotect, &oldprotect);
+}
+
+void Wfloat(QWORD addr, float val)
+{
+	float _val = val;
+	DWORD oldprotect = NULL;
+	VirtualProtectEx(hProcess, (void*)addr, 4, PAGE_EXECUTE_READWRITE, &oldprotect);
+	NTSTATUS Status = __NtWow64WriteVirtualMemory64(hProcess, addr, &_val, 4, NULL);
+	VirtualProtectEx(hProcess, (void*)addr, 4, oldprotect, &oldprotect);
+}
+
+void Wdouble(QWORD addr, double val)
+{
+	double _val = val;
+	DWORD oldprotect = NULL;
+	VirtualProtectEx(hProcess, (void*)addr, 8, PAGE_EXECUTE_READWRITE, &oldprotect);
+	NTSTATUS Status = __NtWow64WriteVirtualMemory64(hProcess, addr, &_val, 8, NULL);
+	VirtualProtectEx(hProcess, (void*)addr, 8, oldprotect, &oldprotect);
+}
 
