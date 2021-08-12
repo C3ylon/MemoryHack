@@ -4,7 +4,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 
-typedef UINT64 QWORD;
+typedef ULONG64 QWORD;
 
 DWORD pid = NULL;
 HANDLE hProcess = NULL;
@@ -79,9 +79,12 @@ int InitByPid(DWORD ProcessID)
 	{
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
-	}
+	} 
+#ifndef _WIN64
 	if (GetNtWow64MemoryProcAddr()) return TRUE;
 	else return FALSE;
+#endif
+	return TRUE;
 }
 
 int InitByWindowName(const wchar_t* windowname)
@@ -102,8 +105,11 @@ int InitByWindowName(const wchar_t* windowname)
 		return FALSE;
 	}
 	printf("[+]hProcess is %08x\n", (DWORD)hProcess);
+#ifndef _WIN64
 	if (GetNtWow64MemoryProcAddr()) return TRUE;
 	else return FALSE;
+#endif
+	return TRUE;
 }
 
 DWORD GetModuleAddr(CONST WCHAR* modname)
@@ -234,7 +240,7 @@ int UnloadDll(char dllname[256])
 	return TRUE;
 }
 
-int ReadMemory(DWORD addr, DWORD size, void* readbuff)
+int ReadMemory(SIZE_T addr, SIZE_T size, void* readbuff)
 {
 	DWORD oldprotect = NULL;
 	VirtualProtectEx(hProcess, (void*)addr, size, PAGE_EXECUTE_READWRITE, &oldprotect);
@@ -243,7 +249,7 @@ int ReadMemory(DWORD addr, DWORD size, void* readbuff)
 	return result;
 }
 
-int WriteMemory(DWORD addr, DWORD size, void* writebuff)
+int WriteMemory(SIZE_T addr, SIZE_T size, void* writebuff)
 {
 	DWORD oldprotect = NULL;
 	VirtualProtectEx(hProcess, (void*)addr, size, PAGE_EXECUTE_READWRITE, &oldprotect);
