@@ -4,7 +4,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 
-typedef ULONG64 QWORD;
+typedef UINT64 QWORD;
 
 DWORD pid = NULL;
 HANDLE hProcess = NULL;
@@ -104,7 +104,7 @@ int InitByWindowName(const wchar_t* windowname)
 		printf("[!]get hProcess fail number: %d\n", GetLastError());
 		return FALSE;
 	}
-	printf("[+]hProcess is %08x\n", (DWORD)hProcess);
+	printf("[+]hProcess is %p\n", hProcess);
 #ifndef _WIN64
 	if (GetNtWow64MemoryProcAddr()) return TRUE;
 	else return FALSE;
@@ -112,7 +112,7 @@ int InitByWindowName(const wchar_t* windowname)
 	return TRUE;
 }
 
-DWORD GetModuleAddr(CONST WCHAR* modname)
+SIZE_T GetModuleAddr(CONST WCHAR* modname)
 {
 	MODULEENTRY32W moduleEntry;
 	memset(&moduleEntry, 0, sizeof(MODULEENTRY32W));
@@ -120,7 +120,6 @@ DWORD GetModuleAddr(CONST WCHAR* modname)
 	if (!hSnapshot)
 	{
 		printf("[!]create snapshot handle fail\n");
-		CloseHandle(hSnapshot);
 		return FALSE;
 	}
 	moduleEntry.dwSize = sizeof(MODULEENTRY32W);
@@ -133,8 +132,8 @@ DWORD GetModuleAddr(CONST WCHAR* modname)
 	do {
 		if (wcscmp(moduleEntry.szModule, modname) == 0)
 		{
-			DWORD result = *(DWORD*)&moduleEntry.hModule;
-			wprintf(L"[+]\"%s\" module address is %08x\n", modname, result);
+			SIZE_T result = *(SIZE_T*)&moduleEntry.hModule;
+			wprintf(L"[+]\"%s\" module address is %p\n", modname, result);
 			CloseHandle(hSnapshot);
 			return result;
 		}
@@ -158,7 +157,7 @@ int InjectShellcode(BYTE shellcode[])
 		VirtualFreeEx(hProcess, calladdr, NULL, MEM_RELEASE);
 		return FALSE;
 	}
-	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (DWORD(_stdcall*)(LPVOID))calladdr, NULL, NULL, NULL);
+	HANDLE hRemote = CreateRemoteThread(hProcess, NULL, NULL, (LPTHREAD_START_ROUTINE)calladdr, NULL, NULL, NULL);
 	if (!hRemote)
 	{
 		printf("[!]create remote thread fail\n");
